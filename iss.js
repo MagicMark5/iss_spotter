@@ -1,15 +1,14 @@
+// require and run the main fetch function
 const request = require('request');
-// contain most of the logic for fetching the data from each API end point
-
 /**
- * Makes a single API request to retrieve the user's IP address.
+ * Orchestrates multiple API requests in order to determine the next 5 upcoming ISS fly overs for the user's current location.
  * Input:
- *   - A callback (to pass back an error or the IP string)
+ *   - A callback with an error or results. 
  * Returns (via Callback):
  *   - An error, if any (nullable)
- *   - The IP address as a string (null if error). Example: "162.245.144.188"
- */
-
+ *   - The fly-over times as an array (null if error):
+ *     [ { risetime: <number>, duration: <number> }, ... ]
+ */ 
 const fetchMyIP = function(callback) {
   request('https://api.ipify.org?format=json', (error, response, body) => {
       
@@ -51,4 +50,52 @@ const fetchCoordsByIP = (ip, callback) => {
   });
 };
 
-module.exports = { fetchMyIP, fetchCoordsByIP };
+// http://api.open-notify.org/iss-pass.json?lat=LAT&lon=LON
+
+const fetchISSFlyOverTimes = (coords, callback) => {
+  request(`http://api.open-notify.org/iss-pass.json?lat=${coords.latitude}&lon=${coords.longitude}`, (error, response, body) => {
+    if (error) {
+      callback(error, null);
+      return;
+    }
+    // if non-200 status, assume server error
+    if (response.statusCode !== 200) {
+      const msg = `Status Code ${response.statusCode} when fetching coordinates for IP: ${body}`;
+      callback(Error(msg), null);
+      return;
+    }
+
+    // if we get here, all's well and we got the data
+    const riseTimes = JSON.parse(body).response; // an array of objects {"risetime": TIMESTAMP, "duration": DURATION}, 
+    callback(null, riseTimes);
+  });
+};
+
+ const nextISSTimesForMyLocation = (callback) => {
+  
+  fetchMyIP((error, ip) => {
+    if (error) {
+      return callback(error, null);
+    }
+
+    fetchCoordsByIP(ip, (error, coords) => {
+      if (error) {
+        return callback(error, null);
+      }
+      fetchISSFlyOverTimes(coords, (error, riseTimes) => {
+        if (error) {
+          return callback(error, null);
+        }
+        
+        callback(null, riseTimes);
+
+      });
+
+    });
+
+  });
+};
+
+
+
+module.exports = { nextISSTimesForMyLocation };
