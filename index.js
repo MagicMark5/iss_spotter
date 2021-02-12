@@ -28,5 +28,7 @@ nextISSTimesForMyLocation((error, riseTimes) => {
   if (error) {
     return console.log("It didn't work!", error);
   }
-  printRiseTimes(riseTimes);
+  // printRiseTimes(riseTimes);
 });
+
+module.exports = { printRiseTimes }
